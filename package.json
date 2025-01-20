@@ -1,0 +1,57 @@
+{
+  "name": "bullmq-zod",
+  "version": "0.1.0",
+  "description": "Type-safe BullMQ integration with Zod schema validation",
+  "keywords": [
+    "bullmq",
+    "zod",
+    "typescript",
+    "queue",
+    "validation",
+    "type-safe"
+  ],
+  "author": "AprilNEA <github@sku.moe>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AprilNEA/bullmq-zod.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AprilNEA/bullmq-zod/issues"
+  },
+  "homepage": "https://github.com/AprilNEA/bullmq-zod#readme",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "bullmq": "^5.0.0",
+    "zod": "^3.0.0"
+  },
+  "devDependencies": {
+    "bullmq": "^5.34.10",
+    "ioredis": "^5.4.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.2",
+    "zod": "^3.24.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
