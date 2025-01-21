@@ -1,16 +1,17 @@
-import { Queue, Worker, Job, QueueOptions, JobsOptions, WorkerOptions, RedisConnection } from 'bullmq';
-import { z } from 'zod';
+import { Queue, Worker, type Job, type QueueOptions, type JobsOptions, type WorkerOptions, type ConnectionOptions } from 'bullmq';
+import type { z } from 'zod';
 
 /**
- * 定义通用的 Schema 类型
+ * Define a generic Schema type
  * @template K - JobName<T>
  */
 export type JobSchemaDefinition = {
-  [K: string]: z.ZodType<any>;
+  // biome-ignore lint/suspicious/noExplicitAny: anything
+    [K: string]: z.ZodType<any>;
 };
 
 /**
- * 从 schema 定义中推导出 job 名称和 payload 类型
+ * Derive job names and payload types from schema definition
  * @template T - JobSchemaDefinition
  */
 export type JobName<T extends JobSchemaDefinition> = keyof T;
@@ -19,7 +20,7 @@ export type JobPayloads<T extends JobSchemaDefinition> = {
 };
 
 /**
- * 定义 Job 处理器的类型
+ * Define job handler type
  * @template T - JobSchemaDefinition
  * @template K - JobName<T>
  */
@@ -29,27 +30,31 @@ export type JobHandler<
 > = (job: Job<JobPayloads<T>[K]>) => Promise<void>;
 
 /**
- * 类型安全的 BullMQ 队列类
+ * Type-safe BullMQ queue class
  * @template T - JobSchemaDefinition
  */
 export class TypedQueue<T extends JobSchemaDefinition> {
   private _queue: Queue;
   private _worker: Worker | null = null;
   private schemas: T;
+  // biome-ignore lint/suspicious/noExplicitAny: unknown when job is created
   private handlers: Map<JobName<T>, JobHandler<T, any>>;
 
-  constructor(queueName: string, schemas: T, queueOptions?: QueueOptions) {
-    this._queue = new Queue(queueName, queueOptions);
+  constructor(queueName: string, schemas: T, private readonly connection: ConnectionOptions, queueOptions?: QueueOptions) {
+    this._queue = new Queue(queueName, {
+      connection: this.connection,
+      ...queueOptions,
+    });
     this.handlers = new Map();
     this.schemas = schemas;
   }
 
   /**
-   * 添加特定类型的 job
-   * @param {K} jobName - job 名称
-   * @param {JobPayloads<T>[K]} payload - job 数据
-   * @param {JobsOptions} jobOptions - job 选项
-   * @returns {Promise<Job<JobPayloads<T>[K]>>} 添加的 job 实例
+   * Add a job of specific type
+   * @param {K} jobName - Job name
+   * @param {JobPayloads<T>[K]} payload - Job data
+   * @param {JobsOptions} jobOptions - Job options
+   * @returns {Promise<Job<JobPayloads<T>[K]>>} Added job instance
    */
   async addJob<K extends JobName<T>>(
     jobName: K,
@@ -58,14 +63,14 @@ export class TypedQueue<T extends JobSchemaDefinition> {
   ) {
     const schema = this.schemas[jobName];
     const validatedData = schema.parse(payload);
-    
+
     return this._queue.add(jobName as string, validatedData, jobOptions);
   }
 
   /**
-   * 注册 job 处理器
-   * @param {K} jobName - job 名称
-   * @param {JobHandler<T, K>} handler - job 处理器
+   * Register job handler
+   * @param {K} jobName - Job name
+   * @param {JobHandler<T, K>} handler - Job handler
    */
   registerHandler<K extends JobName<T>>(
     jobName: K,
@@ -75,49 +80,57 @@ export class TypedQueue<T extends JobSchemaDefinition> {
   }
 
   /**
-   * 启动 worker 处理 jobs
-   * @param {WorkerOptions} 可选的 worker 选项
-   * @param {typeof RedisConnection} connection - 可选的 Redis 连接
-   * @returns {Worker} 启动的 worker 实例
+   * Initialize worker to process jobs
+   * @param {WorkerOptions} Optional worker options
+   * @returns {Worker} Initialized worker instance
    */
-  async startWorker(workerOptions?: WorkerOptions, connection?: typeof RedisConnection) {
+  initWorker(workerOptions?: WorkerOptions) {
     if (this._worker) {
       throw new Error('Worker already started');
     }
-
     this._worker = new Worker(
       this._queue.name,
+      // biome-ignore lint/suspicious/noExplicitAny: unknown when job is created
       async (job: Job<JobPayloads<T>[any]>) => {
         const handler = this.handlers.get(job.name as JobName<T>);
         if (!handler) {
           throw new Error(`No handler registered for job type: ${job.name}`);
         }
-        
+
         await handler(job);
       },
-      workerOptions,
-      connection
+      {
+        autorun: false,
+        connection: this.connection,
+        ...workerOptions,
+      }
     );
 
     return this._worker;
   }
 
+  async startWorker() {
+    if (!this._worker) {
+      throw new Error("Worker not initialized");
+    }
+    await this._worker.run();
+  }
   /**
-   * @returns {Queue} 原始队列实例
+   * @returns {Queue} Original queue instance
    */
   get queue() {
     return this._queue;
   }
 
   /**
-   * @returns {Worker} 原始 worker 实例
+   * @returns {Worker} Original worker instance
    */
   get worker() {
     return this._worker;
   }
 
   /**
-   * 关闭队列和 worker
+   * Close queue and worker
    */
   async close() {
     if (this._worker) {
@@ -126,20 +139,3 @@ export class TypedQueue<T extends JobSchemaDefinition> {
     await this._queue.close();
   }
 }
-
-/**
- * 创建队列的工厂函数
- * @template T - JobSchemaDefinition
- * @param {string} queueName - 队列名称
- * @param {T} schemas - job schemas
- * @param {QueueOptions} queueOptions - 队列选项
- * @returns {TypedQueue<T>} 创建的队列实例
- */
-export function createQueue<T extends JobSchemaDefinition>(
-  queueName: string,
-  schemas: T,
-  queueOptions?: QueueOptions
-) {
-  return new TypedQueue(queueName, schemas, queueOptions);
-}
-

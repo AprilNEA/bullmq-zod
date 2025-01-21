@@ -57,6 +57,9 @@ queue.registerHandler('processImage', async (job) => {
   // Handle image processing
 });
 
+// Initialize worker
+queue.initWorker();
+
 // Start the worker
 await queue.startWorker();
 
@@ -121,6 +124,12 @@ class TypedQueue<T extends JobSchemaDefinition> {
     jobName: K,
     handler: JobHandler<T, K>
   ): void;
+
+  // Initialize worker
+  async initWorker(
+    workerOptions?: WorkerOptions,
+    connection?: RedisConnection
+  ): Promise<Worker>;
 
   // Start the worker
   async startWorker(

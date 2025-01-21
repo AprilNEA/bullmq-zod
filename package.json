@@ -1,6 +1,6 @@
 {
   "name": "bullmq-zod",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Type-safe BullMQ integration with Zod schema validation",
   "keywords": [
     "bullmq",
@@ -28,6 +28,11 @@
       "require": "./dist/index.js",
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.ts"
+    },
+    "./helper": {
+      "require": "./dist/helper.js",
+      "import": "./dist/helper.mjs",
+      "types": "./dist/helper.d.ts"
     }
   },
   "files": [
@@ -36,7 +41,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "build": "tsup",
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
